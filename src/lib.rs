@@ -6,15 +6,15 @@ use ansi_term::Color;
 use flexi_logger::{DeferredNow, FlexiLoggerError, Level, Logger, LoggerHandle, Record};
 use flexi_logger::filter::{LogLineFilter, LogLineWriter};
 
-struct LogVerbosity {
+pub struct LogConfig {
     module_levels: HashMap<String, log::Level>,
     target_levels: HashMap<String, log::Level>
 }
-impl LogVerbosity {
-    pub fn new(module_tresholds: &[String], target_tresholds: &[String]) -> LogVerbosity {
-        let mut lv = LogVerbosity {
-            module_levels: LogVerbosity::parse_level_strings(module_tresholds),
-            target_levels: LogVerbosity::parse_level_strings(target_tresholds),
+impl LogConfig {
+    pub fn new(module_tresholds: &[String], target_tresholds: &[String]) -> LogConfig {
+        let mut lv = LogConfig {
+            module_levels: LogConfig::parse_level_strings(module_tresholds),
+            target_levels: LogConfig::parse_level_strings(target_tresholds),
         };
         if lv.module_levels.is_empty() {
             lv.module_levels.insert("".into(), Level::Info);
@@ -54,21 +54,21 @@ impl LogVerbosity {
             .map(|(target, level)| format!("{}:{}", target, level))
             .fold(String::new(), |acc, s| if acc.is_empty() { s } else { acc + "," + &s })
     }
-    pub fn to_string(&self) -> String {
+    pub fn verbosity_string(&self) -> String {
         let mut ret: String = "".into();
         if !self.module_levels.is_empty() {
-            ret = format!("-d {}", LogVerbosity::levels_to_string(&self.module_levels));
+            ret = format!("-d {}", LogConfig::levels_to_string(&self.module_levels));
         }
         if !self.target_levels.is_empty() {
             if !ret.is_empty() {
                 ret = ret + " ";
             }
-            ret = ret + &format!("-v {}", LogVerbosity::levels_to_string(&self.target_levels));
+            ret = ret + &format!("-v {}", LogConfig::levels_to_string(&self.target_levels));
         }
         ret
     }
 }
-impl LogLineFilter for LogVerbosity {
+impl LogLineFilter for LogConfig {
     fn write(&self, now: &mut DeferredNow, record: &log::Record, log_line_writer: &dyn LogLineWriter) -> std::io::Result<()> {
         let mut verbosity_level = Level::Info;
         let module = record.module_path().unwrap_or("");
@@ -136,13 +136,11 @@ fn log_format(w: &mut dyn std::io::Write, now: &mut DeferredNow, record: &Record
     )
 }
 
-pub fn init(module_tresholds: &[String], target_tresholds: &[String]) -> Result<(LoggerHandle, String), FlexiLoggerError> {
-    let topic_verbosity = LogVerbosity::new(module_tresholds, target_tresholds);
-    let verbosity_string_gen = topic_verbosity.to_string();
+pub fn init(config: LogConfig) -> Result<LoggerHandle, FlexiLoggerError> {
     let handle = Logger::try_with_str("debug")?
-        .filter(Box::new(topic_verbosity))
+        .filter(Box::new(config))
         .format(log_format)
         .set_palette("b1;3;2;4;6".into())
         .start()?;
-    Ok((handle, verbosity_string_gen))
+    Ok(handle)
 }
