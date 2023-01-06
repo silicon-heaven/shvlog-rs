@@ -1,8 +1,6 @@
 use std::collections::HashMap;
-use time::format_description;
 use ansi_term::Color;
 
-// use chrono::{NaiveDateTime, TimeZone};
 use flexi_logger::{DeferredNow, FlexiLoggerError, Level, Logger, LoggerHandle, Record};
 use flexi_logger::filter::{LogLineFilter, LogLineWriter};
 
@@ -101,13 +99,6 @@ impl LogLineFilter for LogConfig {
     }
 }
 
-const TS_S: &str = "[year]-[month]-[day]T[hour]:[minute]:[second].[subsecond digits:3]\
-                    [offset_hour sign:mandatory]";//:[offset_minute]";
-lazy_static::lazy_static! {
-    static ref TS: Vec<format_description::FormatItem<'static>>
-        = format_description::parse(TS_S).unwrap(/*ok*/);
-}
-
 fn log_format(w: &mut dyn std::io::Write, now: &mut DeferredNow, record: &Record) -> Result<(), std::io::Error> {
     // let sec = (now.now().unix_timestamp_nanos() / 1000_000_000) as i64;
     // let nano = (now.now().unix_timestamp_nanos() % 1000_000_000) as u32;
@@ -125,11 +116,7 @@ fn log_format(w: &mut dyn std::io::Write, now: &mut DeferredNow, record: &Record
         w,
         "{}{}{}{}",
         //dt.format("%Y-%m-%dT%H:%M:%S.%3f%z"),
-        Color::Green.paint(
-            now.now()
-                .format(&TS)
-                .unwrap_or_else(|_| "Timestamping failed".to_string())
-        ),
+        Color::Green.paint(format!("{}", now.now().format("%Y-%m-%dT%H:%M:%S%.3f"))),
         Color::Yellow.paint(format!("[{}:{}]", record.module_path().unwrap_or("<unnamed>"), record.line().unwrap_or(0))),
         Color::White.bold().paint(target),
         args,
